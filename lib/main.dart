@@ -1,6 +1,16 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:desktop_window/desktop_window.dart';
+import 'package:flutter/gestures.dart';
+
+// Ustawienie minimalnego rozmiaru okna
+Future setMinWindowSize() async {
+  DesktopWindow.setMinWindowSize(Size(800, 600));
+}
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  setMinWindowSize();
   runApp(MyApp());
 }
 
@@ -9,7 +19,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Epub_Reader',
       theme: ThemeData(
         // This is the theme of your application.
         //
@@ -20,9 +30,9 @@ class MyApp extends StatelessWidget {
         // or simply save your changes to "hot reload" in a Flutter IDE).
         // Notice that the counter didn't reset back to zero; the application
         // is not restarted.
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.blueGrey,
       ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
+      home: MyHomePage(title: 'Epub Reader Book Explorer'),
     );
   }
 }
@@ -47,7 +57,6 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
-
   void _incrementCounter() {
     setState(() {
       // This call to setState tells the Flutter framework that something has
@@ -71,7 +80,48 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
+        leading: IconButton(
+          tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+          icon: const Icon(Icons.menu),
+          onPressed: () => null,
+        ),
         title: Text(widget.title),
+        actions: <Widget>[
+          Padding(
+            padding: const EdgeInsets.only(right: 20.0),
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                primary: Colors.blueGrey.shade50,
+              ),
+              label: Text('Add new book',
+                  softWrap: true, textAlign: TextAlign.center),
+              icon: const Icon(Icons.add),
+              onPressed: () => null,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 20.0),
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                primary: Colors.blueGrey.shade50,
+              ),
+              label: Text('Continue reading', textAlign: TextAlign.center),
+              icon: const Icon(Icons.arrow_right_alt_rounded),
+              onPressed: () {},
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 20.0),
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                primary: Colors.blueGrey.shade50,
+              ),
+              label: Text('Settings', textAlign: TextAlign.center),
+              icon: const Icon(Icons.settings),
+              onPressed: () => null,
+            ),
+          ),
+        ],
       ),
       body: Center(
         // Center is a layout widget. It takes a single child and positions it
