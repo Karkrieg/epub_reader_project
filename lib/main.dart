@@ -2,10 +2,22 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:desktop_window/desktop_window.dart';
 import 'package:flutter/gestures.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_windows/shared_preferences_windows.dart';
+import 'dart:io';
+import 'dart:convert';
 
-// Ustawienie minimalnego rozmiaru okna
+import 'book_reader.dart';
+import 'fileReadWrite.dart';
+
+/// Set minimal window size
 Future setMinWindowSize() async {
   DesktopWindow.setMinWindowSize(Size(800, 600));
+}
+
+Future toggleFullScreen() async {
+  DesktopWindow.toggleFullScreen();
 }
 
 void main() {
@@ -56,17 +68,11 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+  final List entries = [
+    {'Cover': 'xxx', 'Title': 'Przykładowa książka 1', 'Author': 'Autor1'},
+    {'Cover': 'xxx', 'Title': 'Przykładowa książka 2', 'Author': 'Autor2'}
+  ];
+  final List<int> colorCodes = <int>[100, 200, 500];
 
   @override
   Widget build(BuildContext context) {
@@ -80,84 +86,335 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
-        leading: IconButton(
-          tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
-          icon: const Icon(Icons.menu),
-          onPressed: () => null,
+        automaticallyImplyLeading: false,
+        //title: Text(widget.title),
+        flexibleSpace: Center(
+          child: SafeArea(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: <Widget>[
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    primary: Colors.blueGrey.shade50,
+                  ),
+                  label: Text('Add new book',
+                      softWrap: true, textAlign: TextAlign.center),
+                  icon: const Icon(Icons.add_rounded, size: 50),
+                  onPressed: () => null,
+                ),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    primary: Colors.blueGrey.shade50,
+                  ),
+                  label: Text('Continue reading', textAlign: TextAlign.center),
+                  icon: const Icon(Icons.arrow_right_alt_rounded, size: 50),
+                  onPressed: () => {},
+                ),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    primary: Colors.blueGrey.shade50,
+                  ),
+                  label: Text('Settings', textAlign: TextAlign.center),
+                  icon: const Icon(Icons.settings_rounded, size: 50),
+                  onPressed: () => {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => MainOptions(title: 'Settings')),
+                    ),
+                  },
+                ),
+              ],
+            ),
+          ),
         ),
-        title: Text(widget.title),
-        actions: <Widget>[
-          Padding(
-            padding: const EdgeInsets.only(right: 20.0),
-            child: TextButton.icon(
-              style: TextButton.styleFrom(
-                primary: Colors.blueGrey.shade50,
-              ),
-              label: Text('Add new book',
-                  softWrap: true, textAlign: TextAlign.center),
-              icon: const Icon(Icons.add),
-              onPressed: () => null,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 20.0),
-            child: TextButton.icon(
-              style: TextButton.styleFrom(
-                primary: Colors.blueGrey.shade50,
-              ),
-              label: Text('Continue reading', textAlign: TextAlign.center),
-              icon: const Icon(Icons.arrow_right_alt_rounded),
-              onPressed: () {},
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 20.0),
-            child: TextButton.icon(
-              style: TextButton.styleFrom(
-                primary: Colors.blueGrey.shade50,
-              ),
-              label: Text('Settings', textAlign: TextAlign.center),
-              icon: const Icon(Icons.settings),
-              onPressed: () => null,
-            ),
-          ),
-        ],
       ),
       body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
-          ],
+        // Column is also a layout widget. It takes a list of children and
+        //
+        // Invoke "debug painting" (press "p" in the console, choose the
+        // "Toggle Debug Paint" action from the Flutter Inspector in Android
+        // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
+        // to see the wireframe for each widget.
+        //
+        // Column has various properties to control how it sizes itself and
+        // how it positions its children. Here we use mainAxisAlignment to
+        // center the children vertically; the main axis here is the vertical
+        // axis because Columns are vertical (the cross axis would be
+        // horizontal).
+
+        child: ListView.separated(
+          padding: const EdgeInsets.all(8),
+          itemCount: entries.length,
+          itemBuilder: (BuildContext context, int index) {
+            return TextButton(
+              onPressed: () => null,
+              child: Container(
+                height: 50,
+                color: Colors.blue[colorCodes[index]],
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Expanded(child: Icon(Icons.book)),
+                        Expanded(
+                          child: Text('${entries[index]['Title']}'),
+                        ),
+                        Expanded(
+                          child: Text('${entries[index]['Author']}'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+          separatorBuilder: (BuildContext context, int index) =>
+              const Divider(),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+    );
+  }
+}
+
+class MainOptions extends StatefulWidget {
+  MainOptions({Key key, this.title}) : super(key: key);
+  final String title;
+
+  @override
+  _MainOptionsState createState() => _MainOptionsState();
+}
+
+class _MainOptionsState extends State<MainOptions>
+    with SingleTickerProviderStateMixin {
+  TabController tabController;
+  bool nightMode;
+  int fontSize = 12;
+  String fontFamily = 'Arial';
+  String backgroundColor = 'White';
+  String textColor = 'Black';
+  void toggleNightMode() => setState(() {
+        nightMode = !nightMode;
+      });
+
+  @override
+  void initState() {
+    super.initState();
+    tabController = TabController(length: 2, vsync: this);
+    _loadConfiguration();
+  }
+
+  void _loadConfiguration() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      this.fontSize = (prefs.getInt('fontSize') ?? 12);
+      this.fontFamily = (prefs.getString('fontFamily') ?? 'Arial');
+      this.backgroundColor = (prefs.getString('backgroundColor') ?? 'White');
+      this.textColor = (prefs.getString('textColor') ?? 'Black');
+    });
+  }
+
+  void _saveConfiguration() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      prefs.setInt('fontSize', this.fontSize);
+      prefs.setString('fontFamily', this.fontFamily);
+      prefs.setString('backgroundColor', this.backgroundColor);
+      prefs.setString('textColor', this.textColor);
+    });
+  }
+
+  @override
+  void dispose() {
+    tabController.dispose();
+    super.dispose();
+  }
+
+  Widget getOptions() {
+    return TabBar(controller: tabController, tabs: [
+      Tab(text: "Font", icon: const Icon(Icons.font_download_rounded)),
+      Tab(text: "Colors", icon: const Icon(Icons.color_lens_rounded))
+    ]);
+  }
+
+  Widget getOptionPages() {
+    return TabBarView(
+      controller: tabController,
+      children: <Widget>[
+        Center(
+          child: Container(
+            width: 315,
+            child: Column(
+              children: <Widget>[
+                // Font Family Selection
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    Text(
+                      'Font Family:',
+                      style: Theme.of(context).textTheme.headline5,
+                    ),
+                    DropdownButton<String>(
+                      value: fontFamily,
+                      items: <String>[
+                        'Arial',
+                        'Consolas',
+                        'Calibri',
+                        'Times New Roman'
+                      ].map<DropdownMenuItem<String>>((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
+                      onChanged: (String value) => {
+                        setState(() {
+                          fontFamily = value;
+                        })
+                      },
+                    ),
+                  ],
+                ),
+                // Font size
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    Text(
+                      'Font Size:',
+                      style: Theme.of(context).textTheme.headline5,
+                    ),
+                    DropdownButton<int>(
+                      value: fontSize,
+                      items: <int>[
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        14,
+                        16,
+                        18,
+                        20,
+                        24,
+                        26,
+                        28,
+                        32
+                      ].map<DropdownMenuItem<int>>((int value) {
+                        return DropdownMenuItem<int>(
+                          value: value,
+                          child: Text(value.toString()),
+                        );
+                      }).toList(),
+                      onChanged: (int value) => setState(() {
+                        fontSize = value;
+                      }),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: EdgeInsets.only(top: 50),
+                  child: OutlinedButton(
+                    child: Text('Save', style: TextStyle()),
+                    onPressed: () => _saveConfiguration(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Center(
+          child: Container(
+            width: 315,
+            child: Column(
+              children: <Widget>[
+                // Background Color Selection
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    Text(
+                      'Background Color:',
+                      style: Theme.of(context).textTheme.headline5,
+                    ),
+                    DropdownButton<String>(
+                      value: backgroundColor,
+                      items: <String>['White', 'Black', 'Red', 'Green', 'Blue']
+                          .map<DropdownMenuItem<String>>((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
+                      onChanged: (String value) => setState(() {
+                        backgroundColor = value;
+                      }),
+                    ),
+                  ],
+                ),
+                // Text color
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    Text(
+                      'Text Color:',
+                      style: Theme.of(context).textTheme.headline5,
+                    ),
+                    DropdownButton<String>(
+                      value: textColor,
+                      items: <String>['Black', 'White', 'Red', 'Green', 'Blue']
+                          .map<DropdownMenuItem<String>>((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
+                      onChanged: (String value) => setState(() {
+                        textColor = value;
+                      }),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: EdgeInsets.only(top: 50),
+                  child: OutlinedButton(
+                    child: Text('Save', style: TextStyle()),
+                    onPressed: () => _saveConfiguration(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        // title: Text(widget.title),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => MyHomePage(),
+              ),
+            )
+          },
+        ),
+        flexibleSpace: SafeArea(
+          child: getOptions(),
+        ),
+      ),
+      body: Center(
+        child:
+            Padding(padding: EdgeInsets.only(top: 50), child: getOptionPages()),
+      ),
     );
   }
 }
