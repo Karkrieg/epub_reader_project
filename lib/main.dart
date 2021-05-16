@@ -2,11 +2,17 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:desktop_window/desktop_window.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/src/widgets/image.dart' as Img;
+import 'package:image/image.dart' as DImage;
+import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_windows/shared_preferences_windows.dart';
 import 'dart:io';
+import 'dart:async';
 import 'dart:convert';
+import 'package:filepicker_windows/filepicker_windows.dart';
+import 'package:epubx/epubx.dart';
 
 import 'book_reader.dart';
 import 'fileReadWrite.dart';
@@ -69,10 +75,136 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   final List entries = [
-    {'Cover': 'xxx', 'Title': 'Przykładowa książka 1', 'Author': 'Autor1'},
-    {'Cover': 'xxx', 'Title': 'Przykładowa książka 2', 'Author': 'Autor2'}
+    {
+      'Cover': 'xxx',
+      'Title': 'Genealogy of Morals',
+      'Author': 'Frydrysz Nicze',
+      'Path': 'C:/Users/NorbertSolecki/Downloads/genealogy-of-morals.epub'
+    },
+    {
+      'Cover': 'xxx',
+      'Title': 'Winnie',
+      'Author': 'Author2',
+      'Path': 'C:/Users/NorbertSolecki/Downloads/Winnie.epub'
+    },
+    {
+      'Cover': 'xxx',
+      'Title': 'Sindbad',
+      'Author': 'Author3',
+      'Path': 'C:/Users/NorbertSolecki/Downloads/sindbad.epub'
+    }
   ];
-  final List<int> colorCodes = <int>[100, 200, 500];
+  final List<int> colorCodes = <int>[100, 200, 300];
+  EpubBook epubBook;
+  String filePath = '';
+  DImage.Image coverImage;
+  List<EpubBook> epubList = <EpubBook>[];
+  String test = '';
+
+  Future getFilePath() async {
+    final file = OpenFilePicker()
+      ..filterSpecification = {'Epub Format': '*.epub', 'All Files': '*.*'}
+      ..defaultExtension = 'epub'
+      ..title = 'Select a book in epub format';
+
+    final result = file.getFile();
+    if (result != null) {
+      setState(() {
+        filePath = result.path;
+      });
+    } else
+      return null;
+  }
+
+  void _tst() async {
+    for (var book in entries) {
+      await _loadBook(book['Path']).whenComplete(() => {
+            test = '252525',
+            setState(() {
+              test = '252525252525';
+            }),
+            print(epubList[0].Title)
+          });
+      //setState(() {
+      //  test = '222222';
+      //});
+    }
+  }
+
+  Future<EpubBook> _loadBook(String path) async {
+    if (path != '' && path != null) {
+      var targetFile = new File(path);
+      final List<int> bytes = await targetFile.readAsBytes();
+      final EpubBook testepubBook = await EpubReader.readBook(bytes);
+      return testepubBook;
+    } else {
+      print('Error! File with path: $path not found!');
+      return null;
+    }
+  }
+
+  Future<List<EpubBook>> _allBooks() async {
+    List<EpubBook> epubBooks = <EpubBook>[];
+    for (var book in entries) {
+      EpubBook temp = await _loadBook(book['Path']);
+      epubBooks.add(temp);
+    }
+    return epubBooks;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    getEpubDetails();
+  }
+
+  Future getEpubDetails() async {
+    List<EpubBook> bookList = await _allBooks();
+    epubList = bookList;
+    return bookList;
+  }
+
+  ///CHRYSTE PANIE BOZE RATUJ
+  Widget epubWidget() {
+    return FutureBuilder(
+      builder: (context, bookSnap) {
+        if (bookSnap.connectionState == ConnectionState.none &&
+            bookSnap.hasData == null) {
+          return Container();
+        }
+        return ListView.builder(
+          padding: EdgeInsets.all(15),
+          itemCount: bookSnap.data.length,
+          itemBuilder: (context, index) {
+            EpubBook tempBook = bookSnap.data[index];
+            return Container(
+              height: 50,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(':('),
+                      ), //Img.Image.memory(
+                      //epubList[0].CoverImage.getBytes())),
+                      Expanded(
+                        child: Text('$tempBook.Title'),
+                      ),
+                      Expanded(
+                        child: Text('$tempBook.Author'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+      future: _allBooks(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,7 +232,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   label: Text('Add new book',
                       softWrap: true, textAlign: TextAlign.center),
                   icon: const Icon(Icons.add_rounded, size: 50),
-                  onPressed: () => null,
+                  onPressed: () => {getFilePath(), print(filePath)},
                 ),
                 TextButton.icon(
                   style: TextButton.styleFrom(
@@ -108,7 +240,17 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                   label: Text('Continue reading', textAlign: TextAlign.center),
                   icon: const Icon(Icons.arrow_right_alt_rounded, size: 50),
-                  onPressed: () => {},
+                  onPressed: () => {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => BookReaderPage(
+                          epubPath:
+                              'C:/Users/NorbertSolecki/Downloads/sindbad.epub',
+                        ),
+                      ),
+                    ),
+                  },
                 ),
                 TextButton.icon(
                   style: TextButton.styleFrom(
@@ -143,32 +285,49 @@ class _MyHomePageState extends State<MyHomePage> {
         // axis because Columns are vertical (the cross axis would be
         // horizontal).
 
-        child: ListView.separated(
+        child: //epubWidget(),
+
+            ListView.separated(
           padding: const EdgeInsets.all(8),
           itemCount: entries.length,
           itemBuilder: (BuildContext context, int index) {
-            return TextButton(
-              onPressed: () => null,
-              child: Container(
-                height: 50,
-                color: Colors.blue[colorCodes[index]],
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    Row(
+            // _loadBook(entries[index]['Path']);
+            return Column(
+              children: [
+                TextButton(
+                  onPressed: () => {
+                    print(entries[index]['Path']),
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => BookReaderPage(
+                                epubPath: entries[index]['Path'])))
+                  },
+                  child: Container(
+                    height: 50,
+                    color: Colors.blue[colorCodes[index]],
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: <Widget>[
-                        Expanded(child: Icon(Icons.book)),
-                        Expanded(
-                          child: Text('${entries[index]['Title']}'),
-                        ),
-                        Expanded(
-                          child: Text('${entries[index]['Author']}'),
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Icon(Icons.book),
+                            ), //Img.Image.memory(
+                            //epubList[0].CoverImage.getBytes())),
+                            Expanded(
+                              child: Text('${entries[index]['Title']}'),
+                            ),
+                            Expanded(
+                              child: Text('${entries[index]['Author']}'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             );
           },
           separatorBuilder: (BuildContext context, int index) =>
@@ -319,7 +478,15 @@ class _MainOptionsState extends State<MainOptions>
                   padding: EdgeInsets.only(top: 50),
                   child: OutlinedButton(
                     child: Text('Save', style: TextStyle()),
-                    onPressed: () => _saveConfiguration(),
+                    onPressed: () => {
+                      _saveConfiguration(),
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Settings Saved!'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      ),
+                    },
                   ),
                 ),
               ],
@@ -380,9 +547,16 @@ class _MainOptionsState extends State<MainOptions>
                 Padding(
                   padding: EdgeInsets.only(top: 50),
                   child: OutlinedButton(
-                    child: Text('Save', style: TextStyle()),
-                    onPressed: () => _saveConfiguration(),
-                  ),
+                      child: Text('Save', style: TextStyle()),
+                      onPressed: () => {
+                            _saveConfiguration(),
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Settings Saved!'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            ),
+                          }),
                 ),
               ],
             ),
