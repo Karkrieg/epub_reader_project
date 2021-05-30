@@ -29,6 +29,11 @@ class _BookReaderPageState extends State<BookReaderPage>
     with SingleTickerProviderStateMixin {
   EpubController _epubController;
   TextStyle _defaultTextStyle = new TextStyle(fontSize: 12, height: 1.25);
+  String _textColorString = 'Black';
+  String _backgroundColorString = 'White';
+  Color _textColor = Colors.black;
+  Color _backgroundColor = Colors.white;
+
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
   @override
@@ -37,19 +42,70 @@ class _BookReaderPageState extends State<BookReaderPage>
     _loadConfiguration();
     _epubController =
         EpubController(document: EpubReader.readBook(_loadEpubBook(epubPath)));
+
     super.initState();
+  }
+
+  void resolveTextColor(String _textColorString) {
+    switch (this._textColorString) {
+      case 'Black':
+        this._textColor = Colors.black;
+        break;
+      case 'White':
+        this._textColor = Colors.white;
+        break;
+      case 'Red':
+        this._textColor = Colors.red.shade800;
+        break;
+      case 'Green':
+        this._textColor = Colors.green.shade800;
+        break;
+      case 'Blue':
+        this._textColor = Colors.blue.shade800;
+        break;
+      default:
+        this._textColor = Colors.black;
+    }
+  }
+
+  void resolveBackgroundColor(String _backgroundColorString) {
+    switch (this._backgroundColorString) {
+      case 'Black':
+        this._backgroundColor = Colors.black;
+        break;
+      case 'White':
+        this._backgroundColor = Colors.white;
+        break;
+      case 'Red':
+        this._backgroundColor = Colors.red.shade800;
+        break;
+      case 'Green':
+        this._backgroundColor = Colors.green.shade800;
+        break;
+      case 'Blue':
+        this._backgroundColor = Colors.blue.shade800;
+        break;
+      default:
+        this._backgroundColor = Colors.black;
+    }
   }
 
   void _loadConfiguration() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
+      this._backgroundColorString =
+          (prefs.getString('backgroundColor') ?? 'White');
+      this._textColorString = (prefs.getString('textColor') ?? 'Black');
+      resolveTextColor(_textColorString);
+      resolveBackgroundColor(_backgroundColorString);
       this._defaultTextStyle = new TextStyle(
         fontSize: prefs.getDouble('fontSize') ?? 15,
+        fontFamily: prefs.getString('fontFamily' ?? 'Roboto'),
+        fontWeight: FontWeight.normal,
+        color: _textColor,
+        backgroundColor: _backgroundColor,
+        height: 1.25,
       );
-      // = (prefs.getInt('fontSize') ?? 12);
-      //this.fontFamily = (prefs.getString('fontFamily') ?? 'Arial');
-      // this.backgroundColor = (prefs.getString('backgroundColor') ?? 'White');
-      // this.textColor = (prefs.getString('textColor') ?? 'Black');
     });
   }
 
@@ -68,6 +124,27 @@ class _BookReaderPageState extends State<BookReaderPage>
       //  ]
       // )
     }
+  }
+
+  Widget _buildDivider(EpubChapter chap) {
+    return Container(
+      //height: double.minPositive,
+      width: double.infinity,
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blueGrey.shade900,
+      ),
+      alignment: Alignment.centerLeft,
+      child: Text(
+        chap.Title ?? '',
+        style: TextStyle(
+          color: Colors.blueGrey.shade50,
+          fontSize: this._defaultTextStyle.fontSize + 10,
+          fontFamily: this._defaultTextStyle.fontFamily,
+          height: 1.25,
+        ),
+      ),
+    );
   }
 
   @override
@@ -94,6 +171,8 @@ class _BookReaderPageState extends State<BookReaderPage>
           child: EpubView(
             controller: _epubController,
             textStyle: _defaultTextStyle,
+            dividerBuilder: (value) => _buildDivider(value),
+            //itemBuilder: (context,chapters,paragraphs,val) =>,
           ),
         ),
       ),
@@ -106,7 +185,7 @@ class _BookReaderPageState extends State<BookReaderPage>
                 color: Colors.blueGrey.shade100,
               ),
               child: Text(
-                'Drawer',
+                'Szuflada',
                 textAlign: TextAlign.center,
               ),
             ),
@@ -115,34 +194,127 @@ class _BookReaderPageState extends State<BookReaderPage>
                   'A+',
                   textAlign: TextAlign.center,
                 ),
-                onTap: () => {}),
+                onTap: () => {
+                      setState(() {
+                        if (_defaultTextStyle.fontSize != 50)
+                          _defaultTextStyle = new TextStyle(
+                            fontSize: _defaultTextStyle.fontSize + 1,
+                            fontFamily: _defaultTextStyle.fontFamily,
+                            fontWeight: FontWeight.normal,
+                            color: _defaultTextStyle.color,
+                            backgroundColor: _defaultTextStyle.backgroundColor,
+                            height: 1.25,
+                          );
+                      }),
+                    }),
             ListTile(
               title: Text(
                 'A-',
                 textAlign: TextAlign.center,
               ),
-              onTap: () => {},
+              onTap: () => {
+                setState(() {
+                  if (_defaultTextStyle.fontSize != 5)
+                    _defaultTextStyle = new TextStyle(
+                      fontSize: _defaultTextStyle.fontSize - 1,
+                      fontWeight: FontWeight.normal,
+                      fontFamily: _defaultTextStyle.fontFamily,
+                      color: _defaultTextStyle.color,
+                      backgroundColor: _defaultTextStyle.backgroundColor,
+                      height: 1.25,
+                    );
+                }),
+              },
             ),
-            ListTile(
-              title: Text(
-                'Font Family',
-                textAlign: TextAlign.center,
-              ),
-              onTap: () => {},
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Text(
+                  'Font Family: ',
+                ),
+                DropdownButton<String>(
+                  value: this._defaultTextStyle.fontFamily,
+                  items: <String>[
+                    'Barlow',
+                    'Roboto',
+                    'Stint',
+                    'Yanone-Kaffeesatz'
+                  ].map<DropdownMenuItem<String>>((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  onChanged: (String value) => {
+                    setState(() {
+                      this._defaultTextStyle = new TextStyle(
+                        fontFamily: value,
+                        fontSize: _defaultTextStyle.fontSize,
+                        fontWeight: FontWeight.normal,
+                        color: _textColor,
+                        backgroundColor: _backgroundColor,
+                        height: 1.25,
+                      );
+                    })
+                  },
+                ),
+              ],
             ),
-            ListTile(
-              title: Text(
-                'Text Color',
-                textAlign: TextAlign.center,
-              ),
-              onTap: () => {},
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Text('Text Color: '),
+                DropdownButton<String>(
+                  value: _textColorString,
+                  items: <String>['Black', 'White', 'Red', 'Green', 'Blue']
+                      .map<DropdownMenuItem<String>>((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  onChanged: (String value) => setState(() {
+                    _textColorString = value;
+                    resolveTextColor(_textColorString);
+                    this._defaultTextStyle = new TextStyle(
+                      fontFamily: _defaultTextStyle.fontFamily,
+                      fontSize: _defaultTextStyle.fontSize,
+                      fontWeight: FontWeight.normal,
+                      color: _textColor,
+                      backgroundColor: _defaultTextStyle.backgroundColor,
+                      height: 1.25,
+                    );
+                  }),
+                ),
+              ],
             ),
-            ListTile(
-              title: Text(
-                'Background Color',
-                textAlign: TextAlign.center,
-              ),
-              onTap: () => {},
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Text('Background Color: '),
+                DropdownButton<String>(
+                  value: _backgroundColorString,
+                  items: <String>['Black', 'White', 'Red', 'Green', 'Blue']
+                      .map<DropdownMenuItem<String>>((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  onChanged: (String value) => setState(() {
+                    _backgroundColorString = value;
+                    resolveBackgroundColor(_backgroundColorString);
+                    this._defaultTextStyle = new TextStyle(
+                      fontFamily: _defaultTextStyle.fontFamily,
+                      fontSize: _defaultTextStyle.fontSize,
+                      fontWeight: FontWeight.normal,
+                      color: _defaultTextStyle.color,
+                      backgroundColor: _backgroundColor,
+                      height: 1.25,
+                    );
+                  }),
+                ),
+              ],
             ),
             ListTile(
               title: Text(
@@ -150,6 +322,15 @@ class _BookReaderPageState extends State<BookReaderPage>
                 textAlign: TextAlign.center,
               ),
               onTap: () => {},
+            ),
+            ListTile(
+              title: Text(
+                'ShowEpubCfi',
+                textAlign: TextAlign.center,
+              ),
+              onTap: () => {
+                print(_epubController.generateEpubCfi()),
+              },
             ),
           ],
         ),

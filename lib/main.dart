@@ -350,8 +350,8 @@ class _MainOptionsState extends State<MainOptions>
     with SingleTickerProviderStateMixin {
   TabController tabController;
   bool nightMode;
-  int fontSize = 12;
-  String fontFamily = 'Arial';
+  double fontSize = 12;
+  String fontFamily = 'Roboto';
   String backgroundColor = 'White';
   String textColor = 'Black';
   void toggleNightMode() => setState(() {
@@ -368,8 +368,8 @@ class _MainOptionsState extends State<MainOptions>
   void _loadConfiguration() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      this.fontSize = (prefs.getInt('fontSize') ?? 12);
-      this.fontFamily = (prefs.getString('fontFamily') ?? 'Arial');
+      this.fontSize = (prefs.getDouble('fontSize') ?? 12);
+      this.fontFamily = (prefs.getString('fontFamily') ?? 'Roboto');
       this.backgroundColor = (prefs.getString('backgroundColor') ?? 'White');
       this.textColor = (prefs.getString('textColor') ?? 'Black');
     });
@@ -378,7 +378,7 @@ class _MainOptionsState extends State<MainOptions>
   void _saveConfiguration() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      prefs.setInt('fontSize', this.fontSize);
+      prefs.setDouble('fontSize', this.fontSize);
       prefs.setString('fontFamily', this.fontFamily);
       prefs.setString('backgroundColor', this.backgroundColor);
       prefs.setString('textColor', this.textColor);
@@ -418,10 +418,10 @@ class _MainOptionsState extends State<MainOptions>
                     DropdownButton<String>(
                       value: fontFamily,
                       items: <String>[
-                        'Arial',
-                        'Consolas',
-                        'Calibri',
-                        'Times New Roman'
+                        'Barlow',
+                        'Roboto',
+                        'Stint',
+                        'Yanone-Kaffeesatz'
                       ].map<DropdownMenuItem<String>>((String value) {
                         return DropdownMenuItem<String>(
                           value: value,
@@ -444,9 +444,9 @@ class _MainOptionsState extends State<MainOptions>
                       'Font Size:',
                       style: Theme.of(context).textTheme.headline5,
                     ),
-                    DropdownButton<int>(
+                    DropdownButton<double>(
                       value: fontSize,
-                      items: <int>[
+                      items: <double>[
                         6,
                         7,
                         8,
@@ -462,13 +462,13 @@ class _MainOptionsState extends State<MainOptions>
                         26,
                         28,
                         32
-                      ].map<DropdownMenuItem<int>>((int value) {
-                        return DropdownMenuItem<int>(
+                      ].map<DropdownMenuItem<double>>((double value) {
+                        return DropdownMenuItem<double>(
                           value: value,
                           child: Text(value.toString()),
                         );
                       }).toList(),
-                      onChanged: (int value) => setState(() {
+                      onChanged: (double value) => setState(() {
                         fontSize = value;
                       }),
                     ),

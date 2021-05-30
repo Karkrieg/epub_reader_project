@@ -53,10 +53,7 @@ flutter:
   # assets:
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
-  assets:
-    - C:/Users/NorbertSolecki/Downloads/genealogy-of-morals.epub
-    - C:/Users/NorbertSolecki/Downloads/Winnie.epub
-    - C:/Users/NorbertSolecki/Downloads/sindbad.epub
+#  assets:
 
 
       
@@ -84,5 +81,18 @@ flutter:
   #       - asset: fonts/TrajanPro_Bold.ttf
   #         weight: 700
   #
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto/Roboto-Regular.ttf
+    - family: Barlow
+      fonts:
+        - asset: assets/fonts/Barlow/Barlow-Medium.ttf
+    - family: Stint
+      fonts:
+        - asset: assets/fonts/Stint_Ultra_Condensed/StintUltraCondensed-Regular.ttf
+    - family: Yanone-Kaffeesatz
+      fonts:
+        - asset: assets/fonts/Yanone_Kaffeesatz/YanoneKaffeesatz-VariableFont_wght.ttf
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
