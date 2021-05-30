@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui';
 import 'dart:io';
 import 'main.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -10,7 +11,9 @@ import 'package:epub_view/epub_view.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
 Future<Uint8List> _loadEpubBook(String assetName) async {
-  final bytes = await rootBundle.load(assetName);
+  //final bytes = await rootBundle.load(assetName);
+  //return bytes.buffer.asUint8List();
+  final bytes = await File(assetName).readAsBytes();
   return bytes.buffer.asUint8List();
 }
 
@@ -25,14 +28,29 @@ class BookReaderPage extends StatefulWidget {
 class _BookReaderPageState extends State<BookReaderPage>
     with SingleTickerProviderStateMixin {
   EpubController _epubController;
+  TextStyle _defaultTextStyle = new TextStyle(fontSize: 12, height: 1.25);
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
     String epubPath = widget.epubPath;
+    _loadConfiguration();
     _epubController =
         EpubController(document: EpubReader.readBook(_loadEpubBook(epubPath)));
     super.initState();
+  }
+
+  void _loadConfiguration() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      this._defaultTextStyle = new TextStyle(
+        fontSize: prefs.getDouble('fontSize') ?? 15,
+      );
+      // = (prefs.getInt('fontSize') ?? 12);
+      //this.fontFamily = (prefs.getString('fontFamily') ?? 'Arial');
+      // this.backgroundColor = (prefs.getString('backgroundColor') ?? 'White');
+      // this.textColor = (prefs.getString('textColor') ?? 'Black');
+    });
   }
 
   Future<void> _onPointerDown(PointerDownEvent event) async {
@@ -75,6 +93,7 @@ class _BookReaderPageState extends State<BookReaderPage>
           onPointerDown: _onPointerDown,
           child: EpubView(
             controller: _epubController,
+            textStyle: _defaultTextStyle,
           ),
         ),
       ),
