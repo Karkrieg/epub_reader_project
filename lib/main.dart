@@ -6,6 +6,7 @@ import 'package:flutter/src/widgets/image.dart' as Img;
 import 'package:image/image.dart' as DImage;
 import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:path_provider_windows/path_provider_windows.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_windows/shared_preferences_windows.dart';
 import 'dart:io';
@@ -14,6 +15,7 @@ import 'dart:convert';
 import 'package:filepicker_windows/filepicker_windows.dart';
 import 'package:epubx/epubx.dart';
 
+import 'package:epub_reader_project/BookModel.dart';
 import 'book_reader.dart';
 import 'fileReadWrite.dart';
 
@@ -92,9 +94,17 @@ class _MyHomePageState extends State<MyHomePage> {
       'Title': 'Sindbad',
       'Author': 'Author3',
       'Path': 'C:/Users/NorbertSolecki/Downloads/sindbad.epub'
+    },
+    {
+      'Cover': 'xxx',
+      'Title': 'XXXX',
+      'Author': 'xxxxxxx',
+      'Path': 'C:/Users/NorbertSolecki/Downloads/pg10-images.epub'
     }
   ];
+  EpubBookList lista_epub;
   final List<int> colorCodes = <int>[100, 200, 300];
+  bool isEmptyList = true;
   EpubBook epubBook;
   String filePath = '';
   DImage.Image coverImage;
@@ -112,9 +122,54 @@ class _MyHomePageState extends State<MyHomePage> {
       setState(() {
         filePath = result.path;
       });
+      _addBookToJSONInfoFile(filePath);
     } else
       return null;
   }
+
+  Future _addBookToJSONInfoFile(String path) async {
+    EpubBook tempEpub;
+    String title;
+    String author;
+    EpubBookInfo bookInfo;
+    EpubBookList bookList;
+    //String bookListString = await readBooks();
+    //print(bookListString);
+    /*if (bookListString == '' || bookListString == null) {
+      print('test');
+      EpubBookList temp =
+          EpubBookList.fromJson(jsonDecode('{"epubList":[{"}]}'));
+      await writeBooks(temp);
+      bookListString = await readBooks();
+      bookList = EpubBookList.fromJson(json.decode(bookListString));
+    } else {
+      bookList = new EpubBookList();
+    }*/
+    try {
+      tempEpub = await _loadBook(path);
+      title = tempEpub.Title;
+      author = tempEpub.Author;
+      bookInfo = EpubBookInfo(path, title, author);
+      if (await readBooks() == null) {
+        bookList = EpubBookList.fromJson(json.decode(
+            '{"epubList":[{"path":"temp","title":"temp","author":"temp"}]}'));
+        bookList.epubList[0] = bookInfo;
+        writeBooks(bookList);
+      } else {
+        String json = await readBooks();
+        bookList = EpubBookList.fromJson(jsonDecode(json));
+        bookList.epubList.add(bookInfo);
+        writeBooks(bookList);
+      }
+      print(bookList.toJson());
+      setState(() {});
+    } catch (e) {
+      print("Error! Book could not be loaded!");
+      print(e);
+    }
+  }
+
+  void _loadBooksInfo() {}
 
   void _tst() async {
     for (var book in entries) {
@@ -143,69 +198,119 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  Future<List<EpubBook>> _allBooks() async {
-    List<EpubBook> epubBooks = <EpubBook>[];
-    for (var book in entries) {
-      EpubBook temp = await _loadBook(book['Path']);
-      epubBooks.add(temp);
-    }
-    return epubBooks;
+  Future<EpubBookList> listInit() async {
+    String json = await readBooks();
+    // if (json == null) await getFilePath();
+    // json = await readBooks();
+    if (json != '' && json != '{"epubList":[]}') {
+      lista_epub = new EpubBookList.fromJson(jsonDecode(json));
+
+      ///print(lista_epub.epubList[0].title);
+      return lista_epub;
+    } else
+      return null;
   }
 
   @override
   void initState() {
     super.initState();
-    getEpubDetails();
+    listInit().whenComplete(() => {
+          setState(() {}),
+        });
   }
 
-  Future getEpubDetails() async {
-    List<EpubBook> bookList = await _allBooks();
-    epubList = bookList;
-    return bookList;
-  }
-
-  ///CHRYSTE PANIE BOZE RATUJ
   Widget epubWidget() {
-    return FutureBuilder(
+    return FutureBuilder<EpubBookList>(
       builder: (context, bookSnap) {
-        if (bookSnap.connectionState == ConnectionState.none &&
-            bookSnap.hasData == null) {
-          return Container();
+        final books = bookSnap.data;
+        isEmptyList = bookSnap.data?.epubList?.contains('title') ?? true;
+
+        switch (bookSnap.connectionState) {
+          case ConnectionState.waiting:
+            return Center(child: CircularProgressIndicator());
+          default:
+            if (bookSnap.hasError) {
+              print("Wystąpił błąd.");
+              return Center(child: Text('Error occurred!'));
+            } else {
+              return buildList(books);
+            }
         }
-        return ListView.builder(
-          padding: EdgeInsets.all(15),
-          itemCount: bookSnap.data.length,
-          itemBuilder: (context, index) {
-            EpubBook tempBook = bookSnap.data[index];
-            return Container(
-              height: 50,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: Text(':('),
-                      ), //Img.Image.memory(
-                      //epubList[0].CoverImage.getBytes())),
-                      Expanded(
-                        child: Text('$tempBook.Title'),
-                      ),
-                      Expanded(
-                        child: Text('$tempBook.Author'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        );
       },
-      future: _allBooks(),
+      future: listInit(),
     );
   }
 
+  Widget buildList(EpubBookList books) => isEmptyList == false
+      ? ListView.separated(
+          padding: const EdgeInsets.all(8),
+          itemCount: lista_epub.epubList.length,
+          itemBuilder: (BuildContext context, int index) {
+            // _loadBook(entries[index]['Path']);
+            return Column(
+              children: [
+                TextButton(
+                  onPressed: () => {
+                    print(lista_epub.epubList[index].path),
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => BookReaderPage(
+                                epubPath: lista_epub.epubList[index].path)))
+                  },
+                  child: Container(
+                    height: 50,
+                    color: Colors.blue[colorCodes[index % 3]],
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Icon(Icons.book),
+                              flex: 1,
+                            ), //Img.Image.memory(
+                            //epubList[0].CoverImage.getBytes())),
+                            Expanded(
+                              child: Text(books.epubList[index].title),
+                              flex: 4,
+                            ),
+                            Expanded(
+                              child: Text(books.epubList[index].author),
+                              flex: 4,
+                            ),
+                            Expanded(
+                              child: TextButton.icon(
+                                onPressed: () => {
+                                  books.epubList.removeAt(index),
+                                  writeBooks(books),
+                                  listInit(),
+                                  setState(() {}),
+                                },
+                                icon: Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
+                                ),
+                                label: Text(
+                                  "DELETE",
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ),
+                              flex: 2,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+          separatorBuilder: (BuildContext context, int index) =>
+              const Divider(),
+        )
+      : Container();
   @override
   Widget build(BuildContext context) {
     // This method is rerun every time setState is called, for instance as done
@@ -285,27 +390,27 @@ class _MyHomePageState extends State<MyHomePage> {
         // axis because Columns are vertical (the cross axis would be
         // horizontal).
 
-        child: //epubWidget(),
-
+        child: epubWidget(),
+/*{
             ListView.separated(
           padding: const EdgeInsets.all(8),
-          itemCount: entries.length,
+          itemCount: lista_epub.epubList.length,
           itemBuilder: (BuildContext context, int index) {
             // _loadBook(entries[index]['Path']);
             return Column(
               children: [
                 TextButton(
                   onPressed: () => {
-                    print(entries[index]['Path']),
+                    print(lista_epub.epubList[index].path),
                     Navigator.push(
                         context,
                         MaterialPageRoute(
                             builder: (context) => BookReaderPage(
-                                epubPath: entries[index]['Path'])))
+                                epubPath: lista_epub.epubList[index].path)))
                   },
                   child: Container(
                     height: 50,
-                    color: Colors.blue[colorCodes[index]],
+                    color: Colors.blue[colorCodes[index % 3]],
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: <Widget>[
@@ -316,10 +421,12 @@ class _MyHomePageState extends State<MyHomePage> {
                             ), //Img.Image.memory(
                             //epubList[0].CoverImage.getBytes())),
                             Expanded(
-                              child: Text('${entries[index]['Title']}'),
+                              child:
+                                  Text('${lista_epub.epubList[index].title}'),
                             ),
                             Expanded(
-                              child: Text('${entries[index]['Author']}'),
+                              child:
+                                  Text('${lista_epub.epubList[index].author}'),
                             ),
                           ],
                         ),
@@ -332,7 +439,7 @@ class _MyHomePageState extends State<MyHomePage> {
           },
           separatorBuilder: (BuildContext context, int index) =>
               const Divider(),
-        ),
+        ),*/
       ),
     );
   }
@@ -349,14 +456,10 @@ class MainOptions extends StatefulWidget {
 class _MainOptionsState extends State<MainOptions>
     with SingleTickerProviderStateMixin {
   TabController tabController;
-  bool nightMode;
   double fontSize = 12;
   String fontFamily = 'Roboto';
   String backgroundColor = 'White';
   String textColor = 'Black';
-  void toggleNightMode() => setState(() {
-        nightMode = !nightMode;
-      });
 
   @override
   void initState() {
@@ -398,7 +501,7 @@ class _MainOptionsState extends State<MainOptions>
     ]);
   }
 
-  Widget getOptionPages() {
+  Widget getOptionPages(BuildContext context) {
     return TabBarView(
       controller: tabController,
       children: <Widget>[
@@ -586,8 +689,8 @@ class _MainOptionsState extends State<MainOptions>
         ),
       ),
       body: Center(
-        child:
-            Padding(padding: EdgeInsets.only(top: 50), child: getOptionPages()),
+        child: Padding(
+            padding: EdgeInsets.only(top: 50), child: getOptionPages(context)),
       ),
     );
   }
