@@ -1,14 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:desktop_window/desktop_window.dart';
-import 'package:flutter/gestures.dart';
-import 'package:flutter/src/widgets/image.dart' as Img;
-import 'package:image/image.dart' as DImage;
 import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:path_provider_windows/path_provider_windows.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shared_preferences_windows/shared_preferences_windows.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
@@ -17,7 +12,6 @@ import 'package:epubx/epubx.dart';
 
 import 'package:epub_reader_project/BookModel.dart';
 import 'book_reader.dart';
-import 'fileReadWrite.dart';
 
 /// Set minimal window size
 Future setMinWindowSize() async {
@@ -76,7 +70,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  final List entries = [
+  /* final List entries = [
     {
       'Cover': 'xxx',
       'Title': 'Genealogy of Morals',
@@ -101,15 +95,17 @@ class _MyHomePageState extends State<MyHomePage> {
       'Author': 'xxxxxxx',
       'Path': 'C:/Users/NorbertSolecki/Downloads/pg10-images.epub'
     }
-  ];
+  ];*/
   EpubBookList lista_epub;
   final List<int> colorCodes = <int>[100, 200, 300];
   bool isEmptyList = true;
+  int listIndex;
   EpubBook epubBook;
+  EpubBookList tmp;
   String filePath = '';
-  DImage.Image coverImage;
+  String lastRead = 'NONE';
+  String lastCfi = 'NONE';
   List<EpubBook> epubList = <EpubBook>[];
-  String test = '';
 
   Future getFilePath() async {
     final file = OpenFilePicker()
@@ -128,6 +124,8 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future _addBookToJSONInfoFile(String path) async {
+    bool duplicate = false;
+    bool empty = true;
     EpubBook tempEpub;
     String title;
     String author;
@@ -136,6 +134,7 @@ class _MyHomePageState extends State<MyHomePage> {
     //String bookListString = await readBooks();
     //print(bookListString);
     /*if (bookListString == '' || bookListString == null) {
+      
       print('test');
       EpubBookList temp =
           EpubBookList.fromJson(jsonDecode('{"epubList":[{"}]}'));
@@ -145,21 +144,35 @@ class _MyHomePageState extends State<MyHomePage> {
     } else {
       bookList = new EpubBookList();
     }*/
+
     try {
       tempEpub = await _loadBook(path);
       title = tempEpub.Title;
       author = tempEpub.Author;
-      bookInfo = EpubBookInfo(path, title, author);
-      if (await readBooks() == null) {
+      bookInfo = EpubBookInfo(path, title, author, '', []);
+      if (await readBooks() == null || await readBooks() == '') {
         bookList = EpubBookList.fromJson(json.decode(
-            '{"epubList":[{"path":"temp","title":"temp","author":"temp"}]}'));
+            '{"epubList":[{"path":"temp","title":"temp","author":"temp","lastCfi":"NONE","bookmarks":[]}]}'));
         bookList.epubList[0] = bookInfo;
         writeBooks(bookList);
       } else {
         String json = await readBooks();
         bookList = EpubBookList.fromJson(jsonDecode(json));
         bookList.epubList.add(bookInfo);
-        writeBooks(bookList);
+        empty = (lista_epub.toString() == '{"epubList":[]}' ||
+                lista_epub.toString() == '{}')
+            ? true
+            : false;
+        if (!empty)
+          for (int i = 0; i < lista_epub.epubList.length; i++) {
+            if (path == lista_epub?.epubList[i].path) {
+              duplicate = true;
+            }
+          }
+        if (!duplicate) {
+          writeBooks(bookList);
+        } else
+          print('Book is already added!');
       }
       print(bookList.toJson());
       setState(() {});
@@ -169,21 +182,22 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  void _loadBooksInfo() {}
+  void _saveLastRead() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      prefs.setString('lastRead', 'NONE');
+      prefs.setString('lastCfi', 'NONE');
+    });
+  }
 
-  void _tst() async {
-    for (var book in entries) {
-      await _loadBook(book['Path']).whenComplete(() => {
-            test = '252525',
-            setState(() {
-              test = '252525252525';
-            }),
-            print(epubList[0].Title)
-          });
-      //setState(() {
-      //  test = '222222';
-      //});
-    }
+  void _loadLastRead() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      this.lastRead = (prefs.getString('lastRead') ?? 'NONE');
+      this.lastCfi = (prefs.getString('lastCfi') ?? 'NONE');
+      print(lastRead);
+      print(lastCfi);
+    });
   }
 
   Future<EpubBook> _loadBook(String path) async {
@@ -214,6 +228,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+    _loadLastRead();
     listInit().whenComplete(() => {
           setState(() {}),
         });
@@ -250,13 +265,17 @@ class _MyHomePageState extends State<MyHomePage> {
             return Column(
               children: [
                 TextButton(
-                  onPressed: () => {
+                  onPressed: () async => {
                     print(lista_epub.epubList[index].path),
+                    _loadLastRead(),
                     Navigator.push(
                         context,
                         MaterialPageRoute(
                             builder: (context) => BookReaderPage(
-                                epubPath: lista_epub.epubList[index].path)))
+                                  epubPath: lista_epub.epubList[index].path,
+                                  lastCfi: lista_epub.epubList[index].lastCfi,
+                                  listIndex: index,
+                                ))).then((value) => {setState(() {})})
                   },
                   child: Container(
                     height: 50,
@@ -282,6 +301,11 @@ class _MyHomePageState extends State<MyHomePage> {
                             Expanded(
                               child: TextButton.icon(
                                 onPressed: () => {
+                                  if (books.epubList[index].path == lastRead)
+                                    {
+                                      _saveLastRead(),
+                                      setState(() {}),
+                                    },
                                   books.epubList.removeAt(index),
                                   writeBooks(books),
                                   listInit(),
@@ -311,6 +335,72 @@ class _MyHomePageState extends State<MyHomePage> {
               const Divider(),
         )
       : Container();
+
+  Widget boddy() {
+    return Center(
+      child: SafeArea(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: <Widget>[
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                primary: Colors.blueGrey.shade50,
+              ),
+              label: Text('Add new book',
+                  softWrap: true, textAlign: TextAlign.center),
+              icon: const Icon(Icons.add_rounded, size: 50),
+              onPressed: () => {getFilePath(), print(filePath)},
+            ),
+            lastRead == "NONE"
+                ? Container()
+                : TextButton.icon(
+                    style: TextButton.styleFrom(
+                      primary: Colors.blueGrey.shade50,
+                    ),
+                    label:
+                        Text('Continue reading', textAlign: TextAlign.center),
+                    icon: const Icon(Icons.arrow_right_alt_rounded, size: 50),
+                    onPressed: () async => {
+                      _loadLastRead(),
+                      tmp = await listInit(),
+                      if (lastRead != "NONE")
+                        {
+                          for (int i = 0; i < tmp.epubList.length; i++)
+                            {
+                              if (lastRead == tmp.epubList[i].path)
+                                {
+                                  listIndex = i,
+                                }
+                            },
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => BookReaderPage(
+                                    epubPath: lastRead, lastCfi: lastCfi)),
+                          ),
+                        }
+                    },
+                  ),
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                primary: Colors.blueGrey.shade50,
+              ),
+              label: Text('Settings', textAlign: TextAlign.center),
+              icon: const Icon(Icons.settings_rounded, size: 50),
+              onPressed: () => {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => MainOptions(title: 'Settings')),
+                ),
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // This method is rerun every time setState is called, for instance as done
@@ -321,61 +411,11 @@ class _MyHomePageState extends State<MyHomePage> {
     // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        automaticallyImplyLeading: false,
-        //title: Text(widget.title),
-        flexibleSpace: Center(
-          child: SafeArea(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: <Widget>[
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                    primary: Colors.blueGrey.shade50,
-                  ),
-                  label: Text('Add new book',
-                      softWrap: true, textAlign: TextAlign.center),
-                  icon: const Icon(Icons.add_rounded, size: 50),
-                  onPressed: () => {getFilePath(), print(filePath)},
-                ),
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                    primary: Colors.blueGrey.shade50,
-                  ),
-                  label: Text('Continue reading', textAlign: TextAlign.center),
-                  icon: const Icon(Icons.arrow_right_alt_rounded, size: 50),
-                  onPressed: () => {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => BookReaderPage(
-                          epubPath:
-                              'C:/Users/NorbertSolecki/Downloads/sindbad.epub',
-                        ),
-                      ),
-                    ),
-                  },
-                ),
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                    primary: Colors.blueGrey.shade50,
-                  ),
-                  label: Text('Settings', textAlign: TextAlign.center),
-                  icon: const Icon(Icons.settings_rounded, size: 50),
-                  onPressed: () => {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => MainOptions(title: 'Settings')),
-                    ),
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+          // Here we take the value from the MyHomePage object that was created by
+          // the App.build method, and use it to set our appbar title.
+          automaticallyImplyLeading: false,
+          //title: Text(widget.title),
+          flexibleSpace: boddy()),
       body: Center(
         // Column is also a layout widget. It takes a list of children and
         //
@@ -585,6 +625,7 @@ class _MainOptionsState extends State<MainOptions>
                       _saveConfiguration(),
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
+                          backgroundColor: Colors.blueGrey,
                           content: Text('Settings Saved!'),
                           behavior: SnackBarBehavior.floating,
                         ),

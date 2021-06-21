@@ -1,14 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui';
 import 'dart:io';
-import 'main.dart';
+import 'package:epub_reader_project/BookModel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:epub_view/epub_view.dart';
-import 'package:flutter/services.dart' show rootBundle;
+
+import 'main.dart';
 
 Future<Uint8List> _loadEpubBook(String assetName) async {
   //final bytes = await rootBundle.load(assetName);
@@ -18,32 +20,252 @@ Future<Uint8List> _loadEpubBook(String assetName) async {
 }
 
 class BookReaderPage extends StatefulWidget {
-  BookReaderPage({Key key, this.epubPath}) : super(key: key);
+  BookReaderPage({
+    Key key,
+    this.epubPath,
+    this.lastCfi,
+    this.listIndex,
+  }) : super(key: key);
 
   final String epubPath;
+  final String lastCfi;
+  final int listIndex;
+
   @override
   _BookReaderPageState createState() => _BookReaderPageState();
 }
 
 class _BookReaderPageState extends State<BookReaderPage>
     with SingleTickerProviderStateMixin {
+  EpubBookList lista_epub;
+  List<EpubBook> epubList = <EpubBook>[];
   EpubController _epubController;
   TextStyle _defaultTextStyle = new TextStyle(fontSize: 12, height: 1.25);
   String _textColorString = 'Black';
   String _backgroundColorString = 'White';
   Color _textColor = Colors.black;
   Color _backgroundColor = Colors.white;
+  bool isEmptyList = true;
+  String epubPath;
+  String lastCfi;
+  int listIndex;
+  bool empty = false;
+  Bookmarks temp = new Bookmarks('temp', 'temp');
+  List<Bookmarks> tempBookmarks;
+  List<Bookmarks> bookmarks; // Zrobić też tę listę, co się sama ładuje...
+  final myController = TextEditingController();
 
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
+  Future<EpubBookList> loadInfo() async {
+    String json = await readBooks();
+    if (json != '' && json != '{"epubList":[]}') {
+      lista_epub = new EpubBookList.fromJson(jsonDecode(json));
+      for (int i = 0; i < lista_epub.epubList.length; i++) {
+        if (lista_epub.epubList[i].path == this.epubPath) {
+          listIndex = i;
+        }
+      }
+      return lista_epub;
+    } else
+      return null;
+  }
+
+  //FUTURE BUILDER
+  Widget bookmarksWidget() {
+    return FutureBuilder(
+      builder: (context, bookSnap) {
+        final books = bookSnap.data;
+        isEmptyList = bookSnap.data?.epubList?.contains('title') ?? true;
+
+        switch (bookSnap.connectionState) {
+          case ConnectionState.waiting:
+            return Center(child: CircularProgressIndicator());
+          default:
+            if (bookSnap.hasError) {
+              print("Wystąpił błąd.");
+              return Center(child: Text('Error occurred!'));
+            } else {
+              return Padding(
+                padding: EdgeInsets.only(top: 20),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          flex: 10,
+                          child: SizedBox(
+                            height: 50,
+                            width: 200,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 100),
+                              child: TextField(
+                                cursorHeight: 25,
+                                controller: myController,
+                                decoration: InputDecoration(
+                                  labelText: 'Add new bookmark',
+                                  border: OutlineInputBorder(),
+                                ),
+                                onSubmitted: (String name) async => {
+                                  if (lista_epub.epubList[listIndex].bookmarks
+                                          .toString() ==
+                                      'null')
+                                    {
+                                      lista_epub.epubList[listIndex]
+                                          .bookmarks[0] = temp,
+                                    },
+                                  if (name != '')
+                                    {
+                                      lista_epub.epubList[listIndex].bookmarks
+                                          .add(Bookmarks(
+                                              name,
+                                              _epubController
+                                                  .generateEpubCfi())),
+                                      await writeBooks(lista_epub),
+                                      Navigator.pop(context),
+                                      lista_epub = await loadInfo(),
+                                      showModalBottomSheet<void>(
+                                          context: context,
+                                          builder: (BuildContext context) {
+                                            return bookmarksWidget();
+                                          }),
+                                      myController.clear(),
+                                    }
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: IconButton(
+                            tooltip: 'Save bookmark',
+                            icon: const Icon(
+                              Icons.save,
+                              color: Colors.blueGrey,
+                            ),
+                            onPressed: () async => {
+                              if (myController.text != '')
+                                {
+                                  lista_epub.epubList[listIndex].bookmarks.add(
+                                      Bookmarks(myController.text,
+                                          _epubController.generateEpubCfi())),
+                                  writeBooks(lista_epub),
+                                  Navigator.pop(context),
+                                  lista_epub = await loadInfo(),
+                                  showModalBottomSheet<void>(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return bookmarksWidget();
+                                      }),
+                                  myController.clear(),
+                                }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    buildList(books),
+                  ],
+                ),
+              );
+            }
+        }
+      },
+      future: loadInfo(),
+    );
+  }
+
+  Widget buildList(EpubBookList books) => isEmptyList == false
+      ? Expanded(
+          child: ListView.separated(
+            addAutomaticKeepAlives: true,
+            addRepaintBoundaries: true,
+            addSemanticIndexes: true,
+            shrinkWrap: true,
+            padding: const EdgeInsets.all(20),
+            itemCount: lista_epub.epubList[listIndex]?.bookmarks?.length ?? 0,
+            itemBuilder: (BuildContext context, int index) {
+              return Column(
+                children: [
+                  TextButton(
+                    onPressed: () => {
+                      _epubController.gotoEpubCfi(
+                          books.epubList[listIndex].bookmarks[index].cfi),
+                      Navigator.pop(context),
+                    },
+                    child: Container(
+                        child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Expanded(
+                          flex: 10,
+                          child: Text(
+                            books.epubList[listIndex].bookmarks[index].name,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: TextButton.icon(
+                            onPressed: () async => {
+                              books.epubList[listIndex].bookmarks
+                                  .removeAt(index),
+                              await writeBooks(books),
+                              books = await loadInfo(),
+                              Navigator.pop(context),
+                              showModalBottomSheet<void>(
+                                  context: context,
+                                  builder: (BuildContext context) {
+                                    return bookmarksWidget();
+                                  }),
+                            },
+                            icon: Icon(
+                              Icons.delete,
+                              color: Colors.red,
+                            ),
+                            label: Text("DELETE",
+                                style: TextStyle(color: Colors.red)),
+                          ),
+                        ),
+                      ],
+                    )),
+                  ),
+                ],
+              );
+            },
+            separatorBuilder: (BuildContext context, int index) =>
+                const Divider(),
+          ),
+        )
+      : Container();
+
+  @override
+  void dispose() {
+    myController.dispose();
+    super.dispose();
+  }
+
   @override
   void initState() {
-    String epubPath = widget.epubPath;
-    _loadConfiguration();
-    _epubController =
-        EpubController(document: EpubReader.readBook(_loadEpubBook(epubPath)));
-
     super.initState();
+    loadInfo().whenComplete(() => {setState(() {})});
+    setState(() {
+      epubPath = widget.epubPath;
+      lastCfi = widget.lastCfi;
+      listIndex = widget.listIndex;
+    });
+
+    _loadConfiguration();
+    if (epubPath != 'NONE') {
+      _epubController = EpubController(
+          document: EpubReader.readBook(_loadEpubBook(epubPath)),
+          epubCfi: lastCfi);
+      _epubController.gotoEpubCfi(lastCfi);
+    } else {
+      Navigator.pop(context);
+    }
   }
 
   void resolveTextColor(String _textColorString) {
@@ -109,6 +331,17 @@ class _BookReaderPageState extends State<BookReaderPage>
     });
   }
 
+  void _saveLastRead() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cfi = _epubController.generateEpubCfi();
+    setState(() {
+      prefs.setString('lastRead', this.epubPath);
+      prefs.setString('lastCfi', cfi);
+      print(this.epubPath);
+      print(cfi);
+    });
+  }
+
   Future<void> _onPointerDown(PointerDownEvent event) async {
     // Check, if right mouse button was clicked
     if (event.kind == PointerDeviceKind.mouse &&
@@ -154,15 +387,22 @@ class _BookReaderPageState extends State<BookReaderPage>
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => {_saveLastRead(), Navigator.pop(context)},
         ),
-        //title: EpubActualChapter(
-        //  controller: _epubController,
-        //  builder: (chapterValue) => Text(
-        //'Chapter ${chapterValue.chapter.Title ?? ''}',
-        //    textAlign: TextAlign.start,
-        //  ),
-        // ),
+        title: EpubActualChapter(
+          controller: _epubController,
+          builder: (chapterValue) => Text(
+            '${chapterValue.chapter?.Title ?? ''}',
+            textAlign: TextAlign.start,
+          ),
+        ),
+        actions: [
+          IconButton(
+              icon: Icon(Icons.menu),
+              onPressed: () => {
+                    _scaffoldKey.currentState.openEndDrawer(),
+                  })
+        ],
       ),
       body: Container(
         color: Colors.white,
@@ -176,6 +416,11 @@ class _BookReaderPageState extends State<BookReaderPage>
           ),
         ),
       ),
+      endDrawer: Drawer(
+        child: EpubReaderTableOfContents(
+          controller: _epubController,
+        ),
+      ),
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.all(10),
@@ -185,7 +430,7 @@ class _BookReaderPageState extends State<BookReaderPage>
                 color: Colors.blueGrey.shade100,
               ),
               child: Text(
-                'Szuflada',
+                'Narzędzia',
                 textAlign: TextAlign.center,
               ),
             ),
@@ -321,15 +566,32 @@ class _BookReaderPageState extends State<BookReaderPage>
                 'Bookmarks',
                 textAlign: TextAlign.center,
               ),
-              onTap: () => {},
+              onTap: () => {
+                showModalBottomSheet<void>(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return bookmarksWidget();
+                    }),
+              },
             ),
             ListTile(
               title: Text(
-                'ShowEpubCfi',
+                'Save Progress',
                 textAlign: TextAlign.center,
               ),
-              onTap: () => {
-                print(_epubController.generateEpubCfi()),
+              onTap: () async => {
+                lastCfi = _epubController.generateEpubCfi(),
+                await loadInfo(),
+                lista_epub.epubList[listIndex].lastCfi = lastCfi,
+                await writeBooks(lista_epub),
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  backgroundColor: Colors.blueGrey,
+                  content: Text(
+                    'Progress saved!',
+                    textAlign: TextAlign.center,
+                  ),
+                  behavior: SnackBarBehavior.floating,
+                ))
               },
             ),
           ],

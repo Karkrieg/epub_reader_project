@@ -35,23 +35,55 @@ class EpubBookInfo {
   String path;
   String title;
   String author;
+  String lastCfi;
+  List<Bookmarks> bookmarks;
 
-  EpubBookInfo(this.path, this.title, this.author);
+  EpubBookInfo(this.path, this.title, this.author,
+      [this.lastCfi, this.bookmarks]);
 
   factory EpubBookInfo.fromJson(dynamic json) {
-    return EpubBookInfo(json['path'] as String, json['title'] as String,
-        json['author'] as String);
+    if (json['bookmarks'] != null) {
+      var tmp = json['bookmarks'] as List;
+      List<Bookmarks> _bookmarks =
+          tmp.map((bmjson) => Bookmarks.fromJson(bmjson)).toList();
+      return EpubBookInfo(json['path'] as String, json['title'] as String,
+          json['author'] as String, json['lastcfi'] as String, _bookmarks);
+    } else {
+      return EpubBookInfo(json['path'] as String, json['title'] as String,
+          json['author'] as String, json['lastcfi'] as String);
+    }
   }
 
   Map<String, dynamic> toJson() => {
         'path': path,
         'title': title,
         'author': author,
+        'lastcfi': lastCfi,
+        'bookmarks': this.bookmarks != null
+            ? this.bookmarks.map((i) => i.toJson()).toList()
+            : null,
       };
 
   @override
   String toString() {
-    return '{${this.path},${this.title},${this.author}}';
+    return '{${this.path},${this.title},${this.author},${this.lastCfi},${this.bookmarks}}';
+  }
+}
+
+class Bookmarks {
+  String name;
+  String cfi;
+
+  Bookmarks(this.name, this.cfi);
+
+  factory Bookmarks.fromJson(dynamic json) {
+    return Bookmarks(json['name'] as String, json['cfi'] as String);
+  }
+
+  Map<String, dynamic> toJson() => {'name': name, 'cfi': cfi};
+  @override
+  String toString() {
+    return '{${this.name},${this.cfi}}';
   }
 }
 
