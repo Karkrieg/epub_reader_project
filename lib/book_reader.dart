@@ -10,8 +10,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:epub_view/epub_view.dart';
 
-import 'main.dart';
-
 Future<Uint8List> _loadEpubBook(String assetName) async {
   //final bytes = await rootBundle.load(assetName);
   //return bytes.buffer.asUint8List();
@@ -347,15 +345,6 @@ class _BookReaderPageState extends State<BookReaderPage>
     if (event.kind == PointerDeviceKind.mouse &&
         event.buttons == kSecondaryMouseButton) {
       _scaffoldKey.currentState.openDrawer();
-      //print("RMB CLICKED!");
-      //final overlay =
-      //Overlay.of(context).context.findRenderObject() as RenderBox;
-      //final menuItem = await showMenu<int>(
-      //  context: context,
-      //  items: [
-      //    PopupMenuItem
-      //  ]
-      // )
     }
   }
 

@@ -131,19 +131,6 @@ class _MyHomePageState extends State<MyHomePage> {
     String author;
     EpubBookInfo bookInfo;
     EpubBookList bookList;
-    //String bookListString = await readBooks();
-    //print(bookListString);
-    /*if (bookListString == '' || bookListString == null) {
-      
-      print('test');
-      EpubBookList temp =
-          EpubBookList.fromJson(jsonDecode('{"epubList":[{"}]}'));
-      await writeBooks(temp);
-      bookListString = await readBooks();
-      bookList = EpubBookList.fromJson(json.decode(bookListString));
-    } else {
-      bookList = new EpubBookList();
-    }*/
 
     try {
       tempEpub = await _loadBook(path);
@@ -214,12 +201,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<EpubBookList> listInit() async {
     String json = await readBooks();
-    // if (json == null) await getFilePath();
-    // json = await readBooks();
     if (json != '' && json != '{"epubList":[]}') {
       lista_epub = new EpubBookList.fromJson(jsonDecode(json));
 
-      ///print(lista_epub.epubList[0].title);
       return lista_epub;
     } else
       return null;
@@ -417,69 +401,7 @@ class _MyHomePageState extends State<MyHomePage> {
           //title: Text(widget.title),
           flexibleSpace: boddy()),
       body: Center(
-        // Column is also a layout widget. It takes a list of children and
-        //
-        // Invoke "debug painting" (press "p" in the console, choose the
-        // "Toggle Debug Paint" action from the Flutter Inspector in Android
-        // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-        // to see the wireframe for each widget.
-        //
-        // Column has various properties to control how it sizes itself and
-        // how it positions its children. Here we use mainAxisAlignment to
-        // center the children vertically; the main axis here is the vertical
-        // axis because Columns are vertical (the cross axis would be
-        // horizontal).
-
         child: epubWidget(),
-/*{
-            ListView.separated(
-          padding: const EdgeInsets.all(8),
-          itemCount: lista_epub.epubList.length,
-          itemBuilder: (BuildContext context, int index) {
-            // _loadBook(entries[index]['Path']);
-            return Column(
-              children: [
-                TextButton(
-                  onPressed: () => {
-                    print(lista_epub.epubList[index].path),
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => BookReaderPage(
-                                epubPath: lista_epub.epubList[index].path)))
-                  },
-                  child: Container(
-                    height: 50,
-                    color: Colors.blue[colorCodes[index % 3]],
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: Icon(Icons.book),
-                            ), //Img.Image.memory(
-                            //epubList[0].CoverImage.getBytes())),
-                            Expanded(
-                              child:
-                                  Text('${lista_epub.epubList[index].title}'),
-                            ),
-                            Expanded(
-                              child:
-                                  Text('${lista_epub.epubList[index].author}'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-          separatorBuilder: (BuildContext context, int index) =>
-              const Divider(),
-        ),*/
       ),
     );
   }
